@@ -12,11 +12,11 @@ import threading
 from ctypes import pythonapi, c_void_p
 
 import numpy as np
-from numba import jit, void, double
+from numba import jit, void, double, autojit
 
 import multiprocessing
 
-def mvectorize( fn, *args ):
+def mvectorize( fn, signature, num_threads=None ):
     """
     A Multi-Threaded vectorisation decorator
     fn needs to be compiled in Numba before use
@@ -24,8 +24,9 @@ def mvectorize( fn, *args ):
     e.g. to vectorise a function that will return a double array, and takes a double array as input,
         mvectorise( fn, double[:], double[:] )
     """
-    new_inner_func = make_inner_func( fn, double[:], double[:] )
-    return make_multithread( new_inner_func, multiprocessing.cpu_count() )
+    new_inner_func = make_inner_func( fn, *signature )
+    num_threads = num_threads or multiprocessing.cpu_count()
+    return make_multithread( new_inner_func, num_threads )
 
 def make_inner_func( fn, *args ):
     signature = void( *args )
