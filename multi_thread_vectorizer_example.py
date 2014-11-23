@@ -6,7 +6,7 @@ from timeit import repeat
 import numpy as np
 from numba import jit, void, double
 
-from multi_thread_vectorizer import mvectorise
+from my_numba.multi_thread_vectorizer import mvectorize
 
 if __name__=='__main__':
     """ Example Usage """
@@ -79,9 +79,17 @@ if __name__=='__main__':
         return 0.0
 
     signature = double(double,)
+    print( 'Compiling jit function' )
     nb_floor_closest_valid_odds = jit(signature, nopython=True)(floor_closest_valid_odds)
     
-    mf = mvectorise( nb_floor_closest_valid_odds, double[:], double[:] )
+    print( 'Compiling 4 thread')
+    mf4 = mvectorize( nb_floor_closest_valid_odds, ( double[:], double[:] ), num_threads=4 )
+    print( 'Compiling 6 thread')
+    mf6 = mvectorize( nb_floor_closest_valid_odds, ( double[:], double[:] ), num_threads=6 )    
+    print( 'Compiling 7 thread')
+    mf7 = mvectorize( nb_floor_closest_valid_odds, ( double[:], double[:] ), num_threads=7 )    
+    print( 'Compiling 8 thread')
+    mf8 = mvectorize( nb_floor_closest_valid_odds, ( double[:], double[:] ), num_threads=8 )
     
     signature = double[:](double[:],)
     vf = vectorize(['float64(float64)'], nopython=True)(floor_closest_valid_odds)
@@ -93,24 +101,30 @@ if __name__=='__main__':
         # Make sure the function is compiled before we start the benchmark
         res = func(*args, **kwargs)
         if correct is not None:
-            assert np.allclose(res, correct)
+            assert np.allclose(res, correct), 'results are not all correct'
         # time it
         print('{:>5.0f} ms'.format(min(repeat(lambda: func(*args, **kwargs),
                                               number=5, repeat=2)) * 1000))
         return res
     
-    x = np.random.uniform( 1.0, 1000.0, 1e2)
+    x = np.random.uniform( 1.0, 1000.0, 1e6)
     
     correct = vf( x )
     
     timefunc(correct, "numba (looped)", lf,x)
     timefunc(correct, "numba (vectorised)", vf,x)
-    timefunc(correct, "numba (multi-threaded vectorised)", mf,x)
+    timefunc(correct, "numba (multi-threaded 4 )", mf4,x)
+    timefunc(correct, "numba (multi-threaded 6 )", mf6,x)
+    timefunc(correct, "numba (multi-threaded 7 )", mf7,x)
+    timefunc(correct, "numba (multi-threaded 8 )", mf8,x)
     
     import timeit
-    ls = np.logspace(1,6,10)
+    ls = np.logspace(1,7,20)
     
-    mf_results = []
+    mf4_results = []
+    mf6_results = []
+    mf7_results = []
+    mf8_results = []
     vf_results = []
     uf_results = []
     lf_results = []
@@ -120,13 +134,17 @@ if __name__=='__main__':
         x = np.random.uniform( 1.0, 1000.0, int(xsize))
         
         lf_results.append( timeit.timeit( 'lf(x)', "from __main__ import lf,x", number=3) )
-        #uf_results.append( timeit.timeit( 'uf(x)', "from __main__ import uf,x", number=3) )
-        mf_results.append( timeit.timeit( 'mf(x)', "from __main__ import mf,x", number=3) )
+       
+        mf4_results.append( timeit.timeit( 'mf4(x)', "from __main__ import mf4,x", number=3) )
+        mf6_results.append( timeit.timeit( 'mf6(x)', "from __main__ import mf6,x", number=3) )
+        mf7_results.append( timeit.timeit( 'mf7(x)', "from __main__ import mf7,x", number=3) )
+        mf8_results.append( timeit.timeit( 'mf8(x)', "from __main__ import mf8,x", number=3) )
         vf_results.append( timeit.timeit( 'vf(x)', "from __main__ import vf,x", number=3) )
         
     import pandas as pd
-    df = pd.DataFrame( {'multi-threaded':mf_results, 'looped':lf_results, 'vectorized':vf_results }, index=ls )
+    print( 'Making Dataframe')
+    df = pd.DataFrame( {'multi-threaded 6':mf6_results, 'multi-threaded 7':mf7_results,'multi-threaded 8':mf8_results, 'multi-threaded 4':mf4_results, 'looped':lf_results, 'vectorized':vf_results }, index=ls )
     import matplotlib.pyplot as plt
+    print( 'Plotting chart')
     df.plot()
-    plt.show()
-
+    plt.show( block=False)
