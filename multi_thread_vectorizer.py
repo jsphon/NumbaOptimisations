@@ -16,7 +16,7 @@ from numba import jit, void, double
 
 import multiprocessing
 
-def mvectorise( fn, *args ):
+def mvectorize( fn, *args ):
     """
     A Multi-Threaded vectorisation decorator
     fn needs to be compiled in Numba before use
@@ -29,8 +29,7 @@ def mvectorise( fn, *args ):
 
 def make_inner_func( fn, *args ):
     signature = void( *args )
-    @jit(signature)  
-    
+    @jit(signature)
     def inner_func( result, x ):
         threadstate = savethread()
         for i in range(len(result)):
@@ -43,9 +42,16 @@ def make_multithread(inner_func, numthreads):
         length = len(args[0])
         result = np.empty(length, dtype=np.float64)
         args = (result,) + args        
-        chunklen = (length + 1) // numthreads
-        chunks = [[arg[i * chunklen:(i + 1) * chunklen] for arg in args]
-                  for i in range(numthreads)]
+        #chunklen = (length + 1) // numthreads
+        #chunks = [[arg[i * chunklen:(i + 1) * chunklen] for arg in args]
+        #          for i in range(numthreads)]
+        
+        # Rewrite the above, as it does not work when numthreads does not divide
+        # length evenly
+        idx    = np.arange( length )
+        splits = np.array_split( idx, numthreads)
+        chunks = [[arg[s[0]:s[-1]+1] for arg in args]
+                  for s in splits ]
 
         # You should make sure inner_func is compiled at this point, because
         # the compilation must happen on the main thread. This is the case
@@ -60,6 +66,7 @@ def make_multithread(inner_func, numthreads):
 
         for thread in threads:
             thread.join()
+            
         return result
     return func_mt
   
@@ -70,5 +77,3 @@ savethread.restype = c_void_p
 restorethread = pythonapi.PyEval_RestoreThread
 restorethread.argtypes = [c_void_p]
 restorethread.restype = None
-
-
