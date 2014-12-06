@@ -1,0 +1,32 @@
+import groupby as gb
+import numpy as np
+import pandas as pd
+
+N = 1e7
+
+z = np.random.randn(N)
+X = np.random.random_integers( 0, N/100, N )
+Y = np.random.random_integers( 0, 10, N )
+
+df = pd.DataFrame( { 'X':X, 'Y':Y, 'z':z } )
+print( df.head() )
+
+grps = df.groupby( [ 'X', 'Y' ] )
+
+# 509ms
+%timeit grps['z'].max()
+# 505 ms
+%timeit grps['z'].min()
+# 1.02s
+%timeit grps['z'].agg( [ np.min, np.max ] )
+# 434 ms
+%timeit gb.find_min_max_as_frame( grps, 'z' )
+
+# Calculate the values for comparison
+mx = grps['z'].max()
+mn = grps['z'].min()
+df_min_max = gb.find_min_max_as_frame( grps, 'z' )
+
+# Check the results work
+assert np.all( mx==df_min_max[ 'max' ] )
+assert np.all( mn==df_min_max[ 'min' ] )
