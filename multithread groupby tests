@@ -106,6 +106,28 @@ def pgb_sum( result, comp_ids, data ):
     for i in range( len( comp_ids ) ):        
         cid = comp_ids[i]
         result[ cid ] += data[i]
+        
+@jit(double[:](double[:,:]))
+def row_sum( d ):
+    result = np.zeros( d.shape[0] )
+    cols = d.shape[1]
+    for i in range( d.shape[0] ):
+        for j in range( cols ):
+            result[i]+=d[i,j]
+    return result
+
+@jit(double[:](double[:,:]))
+def row_max( d ):
+    result = np.zeros( d.shape[0] )
+    cols = d.shape[1]
+    mx0 = np.finfo( np.float ).min
+    for i in range( d.shape[0] ):
+        mx = mx0
+        for j in range( cols ):
+            if d[i,j]>mx:
+                mx = d[i,j]
+        result[ i ] = mx
+    return result
     
 savethread = pythonapi.PyEval_SaveThread
 savethread.argtypes = []
@@ -137,11 +159,11 @@ if __name__=='__main__':
         comp_ids, _, ngroups = grps.grouper.group_info
     
     agg_func = lambda x: np.max( x, axis=1)
-    mfn = make_multithreaded_groupby( pgb_max, agg_func, np.finfo( np.float ).min )
+    mfn = make_multithreaded_groupby( pgb_max, row_max, np.finfo( np.float ).min )
     sfn = make_singlethreaded_groupby( pgb_max, np.finfo( np.float ).min )
     
     agg_func_sum = lambda x: np.sum( x, axis=1 )
-    mfn_sum =  make_multithreaded_groupby( pgb_sum, agg_func_sum, 0.0 )
+    mfn_sum =  make_multithreaded_groupby( pgb_sum, row_sum, 0.0 )
     sfn_sum = make_singlethreaded_groupby( pgb_sum, 0.0 )
     
     with Timer( 'MT max' ):
@@ -171,7 +193,7 @@ if __name__=='__main__':
     print( 'Values match')
     
     import timeit
-    ls = np.logspace(1,7,10)
+    ls = np.logspace(1,5,10)
     
     mt_results = []
     st_results = []
